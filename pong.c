@@ -48,14 +48,6 @@ int pong_state = 0; // 0 for main menu, 1 for playing, 2 for game over
 int winning_player = 0; // 0 for no one yet, 1 for user, 2 for CPU
 bool exit_pong = false; // is true to exit 
 
-//surfaces
-static SDL_Surface *screen; // TODO: remove and replace these below
-static SDL_Surface *title;
-static SDL_Surface *numbermap;
-static SDL_Surface *end;
-
-//textures
-SDL_Texture *screen_texture;
 
 //initialize starting position and sizes of game elemements
 void init_game(void) {
@@ -78,6 +70,7 @@ void init_game(void) {
 	paddle[1].h = 50;
 }
 
+//see if anybody has won
 int check_score(void) {
 	
 	int i;
@@ -147,7 +140,7 @@ int check_collision(ball_t a, paddle_t b) {
 	return 1;
 }
 
-/* This routine moves each ball by its motion vector. */
+// move the ball according to its motion vector
 void move_ball(void) {
 	
 	/* Move the ball by its motion vector. */
@@ -157,14 +150,14 @@ void move_ball(void) {
 	/* Turn the ball around if it hits the edge of the screen. */
 	if (ball.x < 0) { // if ball hits left edge of screen
 		
-		score[1] += 1; // give player 1 a point
-		init_game(); // redraw the screen from start
+		score[1] += 1; // give cpu a point
+		init_game(); 
 	}
 
 	if (ball.x > (SCREEN_WIDTH - 10)) { //if ball hits right edge of screen
 		
-		score[0] += 1; // give player 0 a point
-		init_game(); // redraw the screen drom start
+		score[0] += 1; // give user a point
+		init_game(); 
 	}
 
 	if (ball.y < 0 || ball.y > (SCREEN_HEIGHT - 10)) { // if ball hits top or bottom edge of screen
@@ -239,7 +232,7 @@ void move_ball(void) {
 			if (ball.dx > 0) {
 
 				//teleport ball to avoid mutli collision glitch
-				if (ball.x < 30) { // TODO: resolve this magic number, has something to do with screen size
+				if (ball.x < 30) { 
 				
 					ball.x = 30;
 				}
@@ -248,15 +241,15 @@ void move_ball(void) {
 			} else {
 				
 				//teleport ball to avoid mutli collision glitch
-				if (ball.x > 600) { // TODO: resolve this magic number, has something to do with screen size
+				if (ball.x > (SCREENWIDTH-40)) { 
 				
-					ball.x = 600;
+					ball.x = SCREENWIDTH-40;
 				}
 			}
 		}
 	}
 }
-
+// Moves the CPUs paddle
 void move_paddle_ai(void) {
 
 	int center = paddle[0].y + 25; // TODO: why the +25?
@@ -325,10 +318,10 @@ void move_paddle_ai(void) {
 	}
 }
 
-void move_paddle(int d) { // TODO: integrate key scan to take key value isntead of integer
+void move_paddle(int d) { 
 
 	// if the down arrow is pressed move paddle down
-	if (d == 0) {
+	if (d == DOWN) {
 		
 		if(paddle[1].y >= SCREEN_HEIGHT - paddle[1].h) {
 		
@@ -341,7 +334,7 @@ void move_paddle(int d) { // TODO: integrate key scan to take key value isntead 
 	}
 	
 	// if the up arrow is pressed move paddle up
-	if (d == 1) {
+	if (d == UP) {
 
 		if(paddle[1].y <= 0) {
 		
@@ -354,65 +347,88 @@ void move_paddle(int d) { // TODO: integrate key scan to take key value isntead 
 	}
 }
 
-void draw_game_over(int p) { // TODO: port this over to TFT LCD stuff
-
-	SDL_Rect p1;
-	SDL_Rect p2;
-	SDL_Rect cpu;
-	SDL_Rect dest;
-
-	p1.x = 0;
-	p1.y = 0;
-	p1.w = end->w;
-	p1.h = 75;
-
-	p2.x = 0;
-	p2.y = 75;
-	p2.w = end->w;
-	p2.h = 75;
+void draw_game_over(int p) { 
 	
-	cpu.x = 0;
-	cpu.y = 150;
-	cpu.w = end->w;
-	cpu.h = 75;
-
-	dest.x = (SCREEN_WIDTH / 2) - (end->w / 2);
-	dest.y = (SCREEN_HEIGHT / 2) - (75 / 2);
-	dest.w = end->w;
-	dest.h = 75;
-
+	static XCHAR p1Wins[11] = {'Y','o','u',' ','W','i','n','!','!','!',0};;
+	static XCHAR cpuWins[12] = {'Y','o','u',' ','L','o','s','e','.','.','.',0};
+	static XCHAR gameOver[10] = {'G','a','m','e',' ','O','v','e','r',0}
+	static XCHAR errorTxt[27] = {'O','o','p','s',',',' ','S','o','m','e','t','h','i','n','g',' ','w','e','n','t',' ','w','r','o','n','g',0}
+	
+	unsigned int x_victory = (SCREEN_WIDTH/2);
+	static unsigned int y_victory = (SCREEN_HEIGHT/2)-33; // Arial_Narrow_28 has a height of 33 px, make Y so bottom of text is dead center on screen
+	unsigned int victoryTextLength;
+	
+	unsigned int x_gameOver = x_victory;
+	static unsigned int y_gameOver = (SCREEN_HEIGHT/2)+5; // Don't worry about height of text since there's nothing below this text. Offset by 5 so theres some space between this and victory text
+	unsigned int gameOverTextLength;
 	
 	switch (p) { // 1 means users won, 2 means CPU won
 	
-		case USER:			
-			SDL_BlitSurface(end, &p1, screen, &dest);
+		case USER:		
+			victoryTextLength = TFT_GetTextLength(p1Wins,&Arial_Narrow_28); // figure out how long text is for a given font
+			x_victory -= (victoryTextLength/2); // move origin left half of text length to center text on screen
+			
+			gameOverTextLength = TFT_GetTextLength(gameOver,&Helvetica_Bd_Cn_17); // figure out how long text is for a given font
+			x_gameOver -= (gameOverTextLength/2); // move origin left half of text length to center text on screen
+			
+			BackLight_OFF; // turn off backlight for smooth redraw
+			TFT_Clear(TFT_BLACK); // clear screen
+			TFT_ShowString(x_victory,y_victory,p1Wins,TFT_WHITE,&Arial_Narrow_28); // draw victory text so bottom of text is middle of screen 
+			TFT_ShowString(x_gameOver,y_gameOver,gameOver,TFT_WHITE,&Helvetica_Bd_Cn_17); // draw game over text so top of text is just below middle of screen 
+			BackLight_ON; // turn backlight back on
 		break;
 		case CPU:
-			SDL_BlitSurface(end, &p2, screen, &dest);
+			victoryTextLength = TFT_GetTextLength(cpuWins,&Arial_Narrow_28); // figure out how long text is for a given font
+			x_victory -= (victoryTextLength/2); // move origin left half of text length to center text on screen
+			
+			gameOverTextLength = TFT_GetTextLength(gameOver,&Helvetica_Bd_Cn_17); // figure out how long text is for a given font
+			x_gameOver -= (gameOverTextLength/2); // move origin left half of text length to center text on screen
+			
+			BackLight_OFF; // turn off backlight for smooth redraw
+			TFT_Clear(TFT_WHITE); // clear screen
+			TFT_ShowString(x_victory,y_victory,cpuWins,TFT_BLACK,&Arial_Narrow_28); // draw victory text so bottom of text is middle of screen
+			TFT_ShowString(x_gameOver,y_gameOver,gameOver,TFT_BLACK,&Helvetica_Bd_Cn_17); // draw game over text so top of text is just below middle of screen 
+			BackLight_ON; // turn backlight back on
 		break;
 		default:
-			SDL_BlitSurface(end, &cpu, screen, &dest);
+			gameOverTextLength = TFT_GetTextLength(errorTxt,&Helvetica_Bd_Cn_17); // figure out how long text is for a given font
+			x_gameOver -= (gameOverTextLength/2); // move origin left half of text length to center text on screen
+			
+			if(x_gameOver>SCREEN_WIDTH || x_gameOver<0) x_gameOver = 0; // if we have something weird happen with the unsigned math, just set x to 0 and draw left justified text
+			
+			BackLight_OFF; // turn off backlight for smooth redraw
+			TFT_Clear(TFT_BLACK); // clear screen
+			TFT_ShowString(x_gameOver,y_gameOver,errorTxt,TFT_WHITE,&Helvetica_Bd_Cn_17); // ONLY DRAW ERROR TEXT SINCE SOMETHING BROKE IF WE're HERE
+			BackLight_ON; // turn backlight back on
 		break;
 	}
-	
 }
 
-void draw_menu(void) { // TODO: replace with clear screen? + draw text?
+void draw_menu(void) {
 
-	SDL_Rect src;
-	SDL_Rect dest;
-
-	src.x = 0;
-	src.y = 0;
-	src.w = title->w;
-	src.h = title->h;
-
-	dest.x = (SCREEN_WIDTH / 2) - (src.w / 2);
-	dest.y = (SCREEN_HEIGHT / 2) - (src.h / 2);
-	dest.w = title->w;
-	dest.h = title->h;
-
-	SDL_BlitSurface(title, &src, screen, &dest);
+	static XCHAR title[5] = {'P','o','n','g',0};
+	static XCHAR tip[18] = {'P','r','e','s','s',' ','O','K',' ','t','o',' ','b','e','g','i','n',0};
+	
+	unsigned int x_title = (SCREEN_WIDTH/2);
+	unsigned int y_title = (SCREEN_HEIGHT/2) - 33; // Arial_Narrow_28 has a height of 33 px, make Y so bottom of text is dead center on screen
+	unsigned int titleLength;
+	
+	unsigned int x_tip = (SCREEN_WIDTH/2);
+	unsigned int y_tip = (SCREEN_HEIGHT/2) +5; // Don't worry about height of text since there's nothing below this text. Offset by 5 so theres some space between this and title text
+	unsigned int tipLength;
+	
+	titleLength = TFT_GetTextLength(title,&Arial_Narrow_28); // figure out how long text is for a given font
+	x_title -= (titleLength/2); // offset origin by half of text length to center text on screen
+	
+	tipLength = TFT_GetTextLength(tip,&Helvetica_Bd_Cn_17);  // figure out how long text is for a given font
+	x_tip -= (tipLength/2); // offset origin by half of text length to center text on screen
+	
+	BackLight_OFF; // turn off backlight for smooth redraw
+	TFT_Clear(TFT_BLACK); // clear screen
+	TFT_ShowString(x_title,y_title,title,TFT_WHITE,&Arial_Narrow_28);
+	TFT_ShowString(x_tip,y_tip,tip,TFT_WHITE,&Helvetica_Bd_Cn_17);
+	BackLight_ON; // turn backlight back on
+	
 }
 
 void draw_net(void) { 
@@ -537,6 +553,8 @@ void draw_cpu_score(void) {
 	TFT_ShowString(x,y,cpuScore,TFT_WHITE,&Arial_Narrow_28);
 }
 
+// include this in whichever main you want it to live in
+/*
 int main (void) {		
 	
 	// Initialize the ball position data. 
@@ -545,21 +563,21 @@ int main (void) {
 	//render loop
 	while(exit_pong == false) {
 	
-		//TODO: scan for keys
+		GetKeyPress();
 		
-		if (keystate!=KEY_DN && keystate!=KEY_UP && keystate!=KEY_OK) { // if user presses any key that isn't OK, up or down then exit// TODO: syntax here
+		if (KeyEvent==EVENT_PRESS && KeyValue!=KEY_DN && KeyValue!=KEY_UP && KeyValue!=KEY_OK) { // if user presses any key that isn't OK, up or down then exit
 		
 			exit_pong = true;
 		}
 		
-		if (keystate == KEY_DN && pong_state == GAME_ON) { // if user presses down while the game is going // TODO: syntax
+		if (KeyEvent==EVENT_PRESS && KeyValue == KEY_DN && pong_state == GAME_ON) { // if user presses down while the game is going 
 			
-			move_paddle(0); // move paddle down
+			move_paddle(DOWN); // move paddle down
 		}
 
-		if (keystate == KEY_UP && pong_state == GAME_ON) { // if user presses up while the game is going // TODO: syntax
+		if (KeyEvent==EVENT_PRESS && KeyValue == KEY_UP && pong_state == GAME_ON) { // if user presses up while the game is going 
 			
-			move_paddle(1); // move paddle up
+			move_paddle(UP); // move paddle up
 		}
 		
 		//draw background
@@ -570,7 +588,7 @@ int main (void) {
 		//display main menu
 		if (pong_state == GAME_IDLE ) {
 		
-			if (keystate == KEY_OK) { // "press OK to start"
+			if (KeyValue == KEY_OK) { // "press OK to start"
 				
 				pong_state = GAME_ON; 
 			}
@@ -581,7 +599,7 @@ int main (void) {
 		//display gameover
 		} else if (pong_state == GAME_OVER) {
 		
-			if (keystate == KEY_OK) { // "press OK to exit to menu"
+			if (KeyEvent==EVENT_PRESS && KeyValue == KEY_OK) { // "press OK to exit to menu"
 				pong_state = GAME_IDLE;
 				
 				//delay for a little bit so the space bar press dosnt get triggered twice
@@ -632,4 +650,4 @@ int main (void) {
 	return 0;
 	
 }
-
+*/

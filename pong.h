@@ -19,6 +19,7 @@
 ********************************************************************************************************/
 /* includes */
 #include <stdbool.h>
+#include "tft_drv.h"
 
 /* User Created Type Declarations */
 typedef struct ball_s {
@@ -51,6 +52,9 @@ typedef struct net_seg_s {
 #define GAME_ON		1
 #define GAME_OVER	2
 
+#define DOWN		0
+#define UP			1
+
 /* Extern Variable Declarations */
 extern ball_t ball; // the ball
 extern paddle_t paddle[2]; // the paddles, one for user, one for CPU
@@ -64,10 +68,10 @@ void init_game(void); //initialize starting position and sizes of game elemement
 int check_score(void); // returns 1 or 2 if player 1 or 2 has won, 0 if not
 int check_collision(ball_t a, paddle_t b); //if returns 1 if a collision occured, 0 if not
 void move_ball(void); // This routine moves each ball by its motion vector. 
-void move_paddle_ai(void);
-void move_paddle(int d);
-void draw_game_over(int p); // TODO: port TFT LCD stuff and maybe get rid of this function?
-void draw_menu(void); // TODO: replace with clear screen?
+void move_paddle_ai(void); // Moves the CPUs paddle
+void move_paddle(int d); // Moves the user's paddle
+void draw_game_over(int p); 
+void draw_menu(void); 
 void draw_net(void);
 void draw_ball(void);
 void draw_paddles(void);

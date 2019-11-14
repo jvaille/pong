@@ -1,40 +1,55 @@
+/********************************************************************************************************
+* FILE NAME: pong.c																						*
+* 																										*
+* PURPOSE: The purpose of this file is to not be idle at work so I'm making a game for the Brio Sport	*
+*		   easter egg																					*
+*		   																								*
+* FILE REFERENCES: 																						*
+*	NAME				I/O 			DESCRIPTION														*
+*	----				---				-----------														*
+* 	actuator_control.h	None			Needed for actuator direction macros and instruction type		*
+*	encode.h			None			Needed for position macros										*
+*	syncing.h							Needed for syncing types and defintions							*
+*																										*
+* EXTERNAL VARIABLES: 																					*
+*	NAME				I/O 			DESCRIPTION														*
+*	----				---				-----------														*
+*	actuatorData		None			One indice of the tables that hold the actuator massag data is	*
+*										passed into GetActuatorInstructions to be decompressed			*
+* 																										*
+* EXTERNAL REFERENCES: 																					*
+* 	NAME 								DESCRIPTION														*
+* 	----				 				-----------														*
+*	None								None															*
+* 																										*
+* ABNORMAL TERMINATION CONDITIONS, ERROR AND WARNING MESSAGES: 											*
+* 	Not Applicable...yet																				*
+* 																										*
+* NOTES:																								*
+*																										*
+* REQUIREMENTS/FUNCTIONAL SPECIFICATIONS REFERENCES: 													*
+*																										*
+* DEVELOPMENT HISTORY: 																					*
+* 	Date 			Author 		Release 	Description of Change 										*
+* 	---- 			------ 		------- 	-------------------- 										*
+* 	11/14/2019		JSV			Init. Dev.	Initial build												*
+* 																										*
+* ALGORITHM (PDL) 																						*
+* 	todo 																								*
+*																										*
+********************************************************************************************************/
+#include "pong.h"
 
-//Using libs SDL, glibc
-#include <SDL.h>	//SDL version 2.0
-#include <stdlib.h>
-#include <stdio.h>
-
-#define SCREEN_WIDTH 640	//window height
-#define SCREEN_HEIGHT 480	//window width
-
-//function prototypes
-//initilise SDL
-int init(int w, int h, int argc, char *args[]);
-
-typedef struct ball_s {
-
-	int x, y; /* position on the screen */
-	int w,h; // ball width and height
-	int dx, dy; /* movement vector */
-} ball_t;
-
-typedef struct paddle {
-
-	int x,y;
-	int w,h;
-} paddle_t;
-
-// Program globals
-static ball_t ball;
-static paddle_t paddle[2];
-int score[] = {0,0};
-int width, height;		//used if fullscreen
-
-SDL_Window* window = NULL;	//The window we'll be rendering to
-SDL_Renderer *renderer;		//The renderer SDL will use to draw to the screen
+/* External Variable Definitions */
+ball_t ball = {0};
+paddle_t paddle[2] = {0};
+int score[2] = {0};
+int pong_state = 0; // 0 for main menu, 1 for playing, 2 for game over
+int winning_player = 0; // 0 for no one yet, 1 for user, 2 for CPU
+bool exit_pong = false; // is true to exit 
 
 //surfaces
-static SDL_Surface *screen;
+static SDL_Surface *screen; // TODO: remove and replace these below
 static SDL_Surface *title;
 static SDL_Surface *numbermap;
 static SDL_Surface *end;
@@ -42,28 +57,28 @@ static SDL_Surface *end;
 //textures
 SDL_Texture *screen_texture;
 
-//inisilise starting position and sizes of game elemements
-static void init_game() {
+//initialize starting position and sizes of game elemements
+void init_game(void) {
 	
-	ball.x = screen->w / 2;
-	ball.y = screen->h / 2;
+	ball.x = SCREEN_WIDTH / 2;
+	ball.y = SCREEN_HEIGHT / 2;
 	ball.w = 10;
 	ball.h = 10;
 	ball.dy = 1;
 	ball.dx = 1;
 	
 	paddle[0].x = 20;
-	paddle[0].y = screen->h / 2 - 50 ;
+	paddle[0].y = SCREEN_HEIGHT / 2 - 50 ;
 	paddle[0].w = 10;
 	paddle[0].h = 50;
 
-	paddle[1].x = screen->w - 20 - 10;
-	paddle[1].y = screen->h / 2 - 50;
+	paddle[1].x = SCREEN_WIDTH - 20 - 10;
+	paddle[1].y = SCREEN_HEIGHT / 2 - 50;
 	paddle[1].w = 10;
 	paddle[1].h = 50;
 }
 
-int check_score() {
+int check_score(void) {
 	
 	int i;
 
@@ -77,15 +92,15 @@ int check_score() {
 			score[0] = 0;
 			score[1] = 0;
 			
-			//return 1 if player 1 score @ limit
+			//return 1 if user's score @ limit
 			if (i == 0) {
 
-				return 1;	
+				return USER;	
 
-			//return 2 if player 2 score is @ limit
+			//return 2 if CPU score is @ limit
 			} else {
 				
-				return 2;
+				return CPU;
 			}
 		}
 	}
@@ -133,28 +148,28 @@ int check_collision(ball_t a, paddle_t b) {
 }
 
 /* This routine moves each ball by its motion vector. */
-static void move_ball() {
+void move_ball(void) {
 	
 	/* Move the ball by its motion vector. */
 	ball.x += ball.dx;
 	ball.y += ball.dy;
 	
 	/* Turn the ball around if it hits the edge of the screen. */
-	if (ball.x < 0) {
+	if (ball.x < 0) { // if ball hits left edge of screen
 		
-		score[1] += 1;
-		init_game();
+		score[1] += 1; // give player 1 a point
+		init_game(); // redraw the screen from start
 	}
 
-	if (ball.x > screen->w - 10) { 
+	if (ball.x > (SCREEN_WIDTH - 10)) { //if ball hits right edge of screen
 		
-		score[0] += 1;
-		init_game();
+		score[0] += 1; // give player 0 a point
+		init_game(); // redraw the screen drom start
 	}
 
-	if (ball.y < 0 || ball.y > screen->h - 10) {
+	if (ball.y < 0 || ball.y > (SCREEN_HEIGHT - 10)) { // if ball hits top or bottom edge of screen
 		
-		ball.dy = -ball.dy;
+		ball.dy = -ball.dy; // change ball vertical direction
 	}
 
 	//check for collision with the paddle
@@ -184,7 +199,7 @@ static void move_ball() {
 			//change ball angle based on where on the paddle it hit
 			int hit_pos = (paddle[i].y + paddle[i].h) - ball.y;
 
-			if (hit_pos >= 0 && hit_pos < 7) {
+			if (hit_pos >= 0 && hit_pos < 7) { // TODO: resolve all these magic numbers...has something to do with paddle size
 				ball.dy = 4;
 			}
 
@@ -224,7 +239,7 @@ static void move_ball() {
 			if (ball.dx > 0) {
 
 				//teleport ball to avoid mutli collision glitch
-				if (ball.x < 30) {
+				if (ball.x < 30) { // TODO: resolve this magic number, has something to do with screen size
 				
 					ball.x = 30;
 				}
@@ -233,7 +248,7 @@ static void move_ball() {
 			} else {
 				
 				//teleport ball to avoid mutli collision glitch
-				if (ball.x > 600) {
+				if (ball.x > 600) { // TODO: resolve this magic number, has something to do with screen size
 				
 					ball.x = 600;
 				}
@@ -242,10 +257,10 @@ static void move_ball() {
 	}
 }
 
-static void move_paddle_ai() {
+void move_paddle_ai(void) {
 
-	int center = paddle[0].y + 25;
-	int screen_center = screen->h / 2 - 25;
+	int center = paddle[0].y + 25; // TODO: why the +25?
+	int screen_center = SCREEN_HEIGHT / 2 - 25; // TODO: why the -25?
 	int ball_speed = ball.dy;
 
 	if (ball_speed < 0) {
@@ -310,14 +325,14 @@ static void move_paddle_ai() {
 	}
 }
 
-static void move_paddle(int d) {
+void move_paddle(int d) { // TODO: integrate key scan to take key value isntead of integer
 
 	// if the down arrow is pressed move paddle down
 	if (d == 0) {
 		
-		if(paddle[1].y >= screen->h - paddle[1].h) {
+		if(paddle[1].y >= SCREEN_HEIGHT - paddle[1].h) {
 		
-			paddle[1].y = screen->h - paddle[1].h;
+			paddle[1].y = SCREEN_HEIGHT - paddle[1].h;
 		
 		} else { 
 		
@@ -339,7 +354,7 @@ static void move_paddle(int d) {
 	}
 }
 
-static void draw_game_over(int p) { 
+void draw_game_over(int p) { // TODO: port this over to TFT LCD stuff
 
 	SDL_Rect p1;
 	SDL_Rect p2;
@@ -361,27 +376,28 @@ static void draw_game_over(int p) {
 	cpu.w = end->w;
 	cpu.h = 75;
 
-	dest.x = (screen->w / 2) - (end->w / 2);
-	dest.y = (screen->h / 2) - (75 / 2);
+	dest.x = (SCREEN_WIDTH / 2) - (end->w / 2);
+	dest.y = (SCREEN_HEIGHT / 2) - (75 / 2);
 	dest.w = end->w;
 	dest.h = 75;
 
 	
-	switch (p) {
+	switch (p) { // 1 means users won, 2 means CPU won
 	
-		case 1:			
+		case USER:			
 			SDL_BlitSurface(end, &p1, screen, &dest);
-			break;
-		case 2:
+		break;
+		case CPU:
 			SDL_BlitSurface(end, &p2, screen, &dest);
-			break;
+		break;
 		default:
 			SDL_BlitSurface(end, &cpu, screen, &dest);
+		break;
 	}
 	
 }
 
-static void draw_menu() {
+void draw_menu(void) { // TODO: replace with clear screen? + draw text?
 
 	SDL_Rect src;
 	SDL_Rect dest;
@@ -391,379 +407,229 @@ static void draw_menu() {
 	src.w = title->w;
 	src.h = title->h;
 
-	dest.x = (screen->w / 2) - (src.w / 2);
-	dest.y = (screen->h / 2) - (src.h / 2);
+	dest.x = (SCREEN_WIDTH / 2) - (src.w / 2);
+	dest.y = (SCREEN_HEIGHT / 2) - (src.h / 2);
 	dest.w = title->w;
 	dest.h = title->h;
 
 	SDL_BlitSurface(title, &src, screen, &dest);
 }
 
-static void draw_background() {
- 
-	SDL_Rect src;
-	
-	//draw bg with net
-	src.x = 0;
-	src.y = 0;
-	src.w = screen->w;
-	src.h = screen->h;
+void draw_net(void) { 
 
-	//draw the backgorund
-	//int r = SDL_FillRect(screen,&src,0);
+	net_seg_t net_seg;
 	
-	//if (r !=0){
-		
-	//	printf("fill rectangle faliled in func draw_background()");
-	//}
-}
-
-static void draw_net() {
-
-	SDL_Rect net;
-	
-	net.x = screen->w / 2;
-	net.y = 20;
-	net.w = 5;
-	net.h = 15;
+	net_seg.x = SCREEN_WIDTH / 2;
+	net_seg.y = 20;
+	net_seg.w = 5;
+	net_seg.h = 15;
 
 	//draw the net
-	int i,r;
+	int i;
 
 	for(i = 0; i < 15; i++) {
 		
-		r = SDL_FillRect(screen, &net, 0xffffffff);
-	
-		if (r != 0) { 
-		
-			printf("fill rectangle faliled in func draw_net()");
-		}
+		TFT_FillRect(net_seg.x, net_seg.y, net_seg.w, net_set.h, TFT_WHITE);
 
-		net.y = net.y + 30;
+		net_seg.y = net_seg.y + 30;
 	}
 }
 
-static void draw_ball() {
+void draw_ball(void) { 
 	
-	SDL_Rect src;
-
-	src.x = ball.x;
-	src.y = ball.y;
-	src.w = ball.w;
-	src.h = ball.h;
+	TFT_FillRect(ball.x, ball.y, ball.w, ball.h, TFT_WHITE);
 	
-	int r = SDL_FillRect(screen , &src, 0xffffffff);
-
-	if (r !=0){
-	
-		printf("fill rectangle faliled in func drawball()");
-	}
 }
 
-static void draw_paddle() {
+void draw_paddles(void) {
 
-	SDL_Rect src;
 	int i;
 
 	for (i = 0; i < 2; i++) {
 	
-		src.x = paddle[i].x;
-		src.y = paddle[i].y;
-		src.w = paddle[i].w;
-		src.h = paddle[i].h;
-	
-		int r = SDL_FillRect(screen, &src, 0xffffffff);
-		
-		if (r !=0){
-		
-			printf("fill rectangle faliled in func draw_paddle()");
-		}
+		TFT_FillRect(paddle[i].x, paddle[i].y, paddle[i].w, paddle[i].h, TFT_WHITE)
 	}
 }
 
-static void draw_player_0_score() {
+void draw_user_score(void) {
 	
-	SDL_Rect src;
-	SDL_Rect dest;
-
-	src.x = 0;
-	src.y = 0;
-	src.w = 64;
-	src.h = 64;
-
-	dest.x = (screen->w / 2) - src.w - 12; //12 is just padding spacing
-	dest.y = 0;
-	dest.w = 64;
-	dest.h = 64;
-
-	if (score[0] > 0 && score[0] < 10) {
-		
-		src.x += src.w * score[0];
-	}
+	// SDL_Rect src;
+	// SDL_Rect dest;
+	// 
+	// src.x = 0;
+	// src.y = 0;
+	// src.w = 64;
+	// src.h = 64;
+	// 
+	// dest.x = (SCREEN_WIDTH / 2) - src.w - 12; //12 is just padding spacing
+	// dest.y = 0;
+	// dest.w = 64;
+	// dest.h = 64;
+	// 
+	// if (score[0] > 0 && score[0] < 10) {
+	// 	
+	// 	src.x += src.w * score[0];
+	// }
+	// 
+	// SDL_BlitSurface(numbermap, &src, screen, &dest);
 	
-	SDL_BlitSurface(numbermap, &src, screen, &dest);
+	int ones_i, tens_i;
+	XCHAR ones_c, tens_c;
+	static XCHAR userScore[3] = {0};
+	int x,y;
+	
+	ones_i = score[0]%10;
+	tens_i = (score[0]/10)&10;
+	
+	ones_c = ones_i + '0';
+	tens_c = tens_i + '0';
+	
+	userScore[0] = tens_c;
+	userScore[1] = ones_c;
+	userScore[2] = 0;
+	
+	x = 0 + 15;
+	y = 0 + 15;
+	
+	TFT_ShowString(x,y,userScore,TFT_WHITE,&Arial_Narrow_28);
 }
 
-static void draw_player_1_score() {
+void draw_cpu_score(void) {
 	
-	SDL_Rect src;
-	SDL_Rect dest;
-
-	src.x = 0;
-	src.y = 0;
-	src.w = 64;
-	src.h = 64;
-
-	dest.x = (screen->w / 2) + 12;
-	dest.y = 0;
-	dest.w = 64;
-	dest.h = 64;
+	// SDL_Rect src;
+	// SDL_Rect dest;
+	// 
+	// src.x = 0;
+	// src.y = 0;
+	// src.w = 64;
+	// src.h = 64;
+	// 
+	// dest.x = (SCREEN_WIDTH / 2) + 12;
+	// dest.y = 0;
+	// dest.w = 64;
+	// dest.h = 64;
+	// 
+	// if (score[1] > 0 && score[1] < 10) {
+	// 	
+	// 	src.x += src.w * score[1];
+	// }
+	// 
+	// SDL_BlitSurface(numbermap, &src, screen, &dest);
 	
-	if (score[1] > 0 && score[1] < 10) {
-		
-		src.x += src.w * score[1];
-	}
-
-	SDL_BlitSurface(numbermap, &src, screen, &dest);
+	int ones_i, tens_i;
+	XCHAR ones_c, tens_c;
+	static XCHAR cpuScore[3] = {0};
+	int x,y;
+	
+	ones_i = score[1]%10;
+	tens_i = (score[1]/10)&10;
+	
+	ones_c = ones_i + '0';
+	tens_c = tens_i + '0';
+	
+	cpuScore[0] = tens_c;
+	cpuScore[1] = ones_c;
+	cpuScore[2] = 0;
+	
+	x = (SCREEN_WIDTH/2) + 15;
+	y = 0 + 15;
+	
+	TFT_ShowString(x,y,cpuScore,TFT_WHITE,&Arial_Narrow_28);
 }
 
-int main (int argc, char *args[]) {
-		
-	//SDL Window setup
-	if (init(SCREEN_WIDTH, SCREEN_HEIGHT, argc, args) == 1) {
-		
-		return 0;
-	}
-	
-	SDL_GetWindowSize(window, &width, &height);
-	
-	int sleep = 0;
-	int quit = 0;
-	int state = 0;
-	int r = 0;
-	Uint32 next_game_tick = SDL_GetTicks();
+int main (void) {		
 	
 	// Initialize the ball position data. 
 	init_game();
 	
 	//render loop
-	while(quit == 0) {
+	while(exit_pong == false) {
 	
-		//check for new events every frame
-		SDL_PumpEvents();
-
-		const Uint8 *keystate = SDL_GetKeyboardState(NULL);
+		//TODO: scan for keys
 		
-		if (keystate[SDL_SCANCODE_ESCAPE]) {
+		if (keystate!=KEY_DN && keystate!=KEY_UP && keystate!=KEY_OK) { // if user presses any key that isn't OK, up or down then exit// TODO: syntax here
 		
-			quit = 1;
+			exit_pong = true;
 		}
 		
-		if (keystate[SDL_SCANCODE_DOWN]) {
+		if (keystate == KEY_DN && pong_state == GAME_ON) { // if user presses down while the game is going // TODO: syntax
 			
-			move_paddle(0);
+			move_paddle(0); // move paddle down
 		}
 
-		if (keystate[SDL_SCANCODE_UP]) {
+		if (keystate == KEY_UP && pong_state == GAME_ON) { // if user presses up while the game is going // TODO: syntax
 			
-			move_paddle(1);
+			move_paddle(1); // move paddle up
 		}
 		
 		//draw background
-		SDL_RenderClear(renderer);
-		SDL_FillRect(screen, NULL, 0x000000ff);
+		//SDL_RenderClear(renderer);
+		//SDL_FillRect(screen, NULL, 0x000000ff);
+		TFT_Clear(TFT_BLACK); // TODO: check this out...not sure about OG syntax (above) but I think they just clear the whole screen every time
 		
 		//display main menu
-		if (state == 0 ) {
+		if (pong_state == GAME_IDLE ) {
 		
-			if (keystate[SDL_SCANCODE_SPACE]) {
+			if (keystate == KEY_OK) { // "press OK to start"
 				
-				state = 1;
+				pong_state = GAME_ON; 
 			}
 		
 			//draw menu 
 			draw_menu();
 		
 		//display gameover
-		} else if (state == 2) {
+		} else if (pong_state == GAME_OVER) {
 		
-			if (keystate[SDL_SCANCODE_SPACE]) {
-				state = 0;
+			if (keystate == KEY_OK) { // "press OK to exit to menu"
+				pong_state = GAME_IDLE;
+				
 				//delay for a little bit so the space bar press dosnt get triggered twice
 				//while the main menu is showing
-            			SDL_Delay(500);
+            			DelayMS(500);
 			}
 
-			if (r == 1) {
-
-				//if player 1 is AI if player 1 was human display the return value of r not 3
-				draw_game_over(3);
-
-			} else {
-			
-				//display gameover
-				draw_game_over(r);
-			}
+			draw_game_over(winning_player);
 				
 		//display the game
-		} else if (state == 1) {
+		} else if (pong_state == GAME_ON) {
 			
 			//check score
-			r = check_score();
+			winning_player = check_score();
 		
-			//if either player wins, change to game over state
-			if (r == 1) {
+			//if either player wins, change to game over pong_state
+			if (winning_player) {
 				
-				state = 2;	
+				pong_state = GAME_OVER;	
 
-			} else if (r == 2) {
-			
-				state = 2;	
-			}
+			} 
 
-			//paddle ai movement
+			// paddle ai movement
 			move_paddle_ai();
 
-			//* Move the balls for the next frame. 
+			// Move the balls for the next frame. 
 			move_ball();
 			
-			//draw net
+			// draw net
 			draw_net();
 
-			//draw paddles
-			draw_paddle();
+			// draw paddles
+			draw_paddles();
 			
-			//* Put the ball on the screen.
+			// Put the ball on the screen.
 			draw_ball();
 	
-			//draw the score
-			draw_player_0_score();
+			// draw the score
+			draw_user_score();
 	
-			//draw the score
-			draw_player_1_score();
+			// draw the score
+			draw_cpu_score();
 		}
 	
-		SDL_UpdateTexture(screen_texture, NULL, screen->pixels, screen->w * sizeof (Uint32));
-		SDL_RenderCopy(renderer, screen_texture, NULL, NULL);
-
-		//draw to the display
-		SDL_RenderPresent(renderer);
-				
-		//time it takes to render  frame in milliseconds
-		next_game_tick += 1000 / 60;
-		sleep = next_game_tick - SDL_GetTicks();
-	
-		if( sleep >= 0 ) {
-            				
-			SDL_Delay(sleep);
-		}
 	}
 
-	//free loaded images
-	SDL_FreeSurface(screen);
-	SDL_FreeSurface(title);
-	SDL_FreeSurface(numbermap);
-	SDL_FreeSurface(end);
-
-	//free renderer and all textures used with it
-	SDL_DestroyRenderer(renderer);
-	
-	//Destroy window 
-	SDL_DestroyWindow(window);
-
-	//Quit SDL subsystems 
-	SDL_Quit(); 
 	 
 	return 0;
 	
 }
 
-int init(int width, int height, int argc, char *args[]) {
-
-	//Initialize SDL
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-
-		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-		
-		return 1;
-	} 
-	
-	int i;
-	
-	for (i = 0; i < argc; i++) {
-		
-		//Create window	
-		if(strcmp(args[i], "-f")) {
-			
-			SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, &window, &renderer);
-		
-		} else {
-		
-			SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_FULLSCREEN_DESKTOP, &window, &renderer);
-		}
-	}
-
-	if (window == NULL) { 
-		
-		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-		
-		return 1;
-	}
-
-	//create the screen sruface where all the elemnts will be drawn onto (ball, paddles, net etc)
-	screen = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
-	
-	if (screen == NULL) {
-		
-		printf("Could not create the screen surfce! SDL_Error: %s\n", SDL_GetError());
-
-		return 1;
-	}
-
-	//create the screen texture to render the screen surface to the actual display
-	screen_texture = SDL_CreateTextureFromSurface(renderer, screen);
-
-	if (screen_texture == NULL) {
-		
-		printf("Could not create the screen_texture! SDL_Error: %s\n", SDL_GetError());
-
-		return 1;
-	}
-
-	//Load the title image
-	title = SDL_LoadBMP("title.bmp");
-
-	if (title == NULL) {
-		
-		printf("Could not Load title image! SDL_Error: %s\n", SDL_GetError());
-
-		return 1;
-	}
-	
-	//Load the numbermap image
-	numbermap = SDL_LoadBMP("numbermap.bmp");
-
-	if (numbermap == NULL) {
-		
-		printf("Could not Load numbermap image! SDL_Error: %s\n", SDL_GetError());
-
-		return 1;
-	}
-	
-	//Load the gameover image
-	end = SDL_LoadBMP("gameover.bmp");
-
-	if (end == NULL) {
-		
-		printf("Could not Load title image! SDL_Error: %s\n", SDL_GetError());
-
-		return 1;
-	}
-	
-	// Set the title colourkey. 
-	Uint32 colorkey = SDL_MapRGB(title->format, 255, 0, 255);
-	SDL_SetColorKey(title, SDL_TRUE, colorkey);
-	SDL_SetColorKey(numbermap, SDL_TRUE, colorkey);
-	
-	return 0;
-}

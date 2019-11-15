@@ -43,33 +43,55 @@
 /* External Variable Definitions */
 ball_t ball = {0};
 paddle_t paddle[2] = {0};
+paddle_t prevPaddle[2] = {0};
 int score[2] = {0};
 int pong_state = 0; // 0 for main menu, 1 for playing, 2 for game over
 int winning_player = 0; // 0 for no one yet, 1 for user, 2 for CPU
-bool exit_pong = false; // is true to exit 
+bool exit_pong = true; // is true to exit/to not enter 
+bool menuDrawn = false; // is false before the menu is drawn, true after. Prevents unneccessary redraws
+bool gameOverDrawn = false; // is false before the game over screen is drawn, true after. Prevents unneccessary redraws.
 
 
 //initialize starting position and sizes of game elemements
 void init_game(void) {
 	
-	ball.x = SCREEN_WIDTH / 2;
-	ball.y = SCREEN_HEIGHT / 2;
+	ball.x = MAX_X / 2;
+	ball.y = MAX_Y / 2;
 	ball.w = 10;
 	ball.h = 10;
-	ball.dy = 1;
-	ball.dx = 1;
+	ball.dy = -1;
+	ball.dx = -1;
 	
-	paddle[0].x = 20;
-	paddle[0].y = SCREEN_HEIGHT / 2 - 50 ;
+	paddle[0].x = 20; // far left edge of screen + 20px offset
+	paddle[0].y = MAX_Y / 2 - 50; // vertical middle of screen - length of paddle
 	paddle[0].w = 10;
 	paddle[0].h = 50;
+	
+	prevPaddle[0].x = 20;
+	prevPaddle[0].y = MAX_Y / 2 - 50;
+	prevPaddle[0].w = 10;
+	prevPaddle[0].h = 50;
 
-	paddle[1].x = SCREEN_WIDTH - 20 - 10;
-	paddle[1].y = SCREEN_HEIGHT / 2 - 50;
+	paddle[1].x = MAX_X - 20 - 10; // far right edge of screen - ( 20px offset + 10px width of paddle )
+	paddle[1].y = MAX_Y / 2 - 50; // vertical middle of screen - length of paddle
 	paddle[1].w = 10;
 	paddle[1].h = 50;
+	
+	prevPaddle[1].x = MAX_X - 20 - 10;
+	prevPaddle[1].y = MAX_Y / 2 - 50;
+	prevPaddle[1].w = 10;
+	prevPaddle[1].h = 50;
+	
+	TFT_Clear(TFT_BLACK);
+	
+	menuDrawn = false; // ensure this is false so menu draws the first time for sure
+	gameOverDrawn = false; // ensure this is false so game over draws the first time for sure
 }
-
+// draws paddles for the first time
+void init_paddles(void){
+	TFT_FillRect(paddle[0].x,paddle[0].y,paddle[0].w,paddle[0].h,TFT_WHITE);
+	TFT_FillRect(paddle[1].x,paddle[1].y,paddle[1].w,paddle[1].h,TFT_WHITE);
+}
 //see if anybody has won
 int check_score(void) {
 	
@@ -103,37 +125,37 @@ int check_score(void) {
 }
 
 //if return value is 1 collision occured. if return is 0, no collision.
-int check_collision(ball_t a, paddle_t b) {
+int check_collision(ball_t b, paddle_t p) {
 
-	int left_a, left_b;
-	int right_a, right_b;
-	int top_a, top_b;
-	int bottom_a, bottom_b;
-
-	left_a = a.x;
-	right_a = a.x + a.w;
-	top_a = a.y;
-	bottom_a = a.y + a.h;
+	int left_b, left_p;
+	int right_b, right_p;
+	int top_b, top_p;
+	int bottom_b, bottom_p;
 
 	left_b = b.x;
 	right_b = b.x + b.w;
 	top_b = b.y;
 	bottom_b = b.y + b.h;
+
+	left_p = p.x;
+	right_p = p.x + p.w;
+	top_p = p.y;
+	bottom_p = p.y + p.h;
 	
 
-	if (left_a > right_b) {
+	if (left_b > right_p) {
 		return 0;
 	}
 
-	if (right_a < left_b) {
+	if (right_b < left_p) {
 		return 0;
 	}
 
-	if (top_a > bottom_b) {
+	if (top_b > bottom_p) {
 		return 0;
 	}
 
-	if (bottom_a < top_b) {
+	if (bottom_b < top_p) {
 		return 0;
 	}
 
@@ -142,6 +164,8 @@ int check_collision(ball_t a, paddle_t b) {
 
 // move the ball according to its motion vector
 void move_ball(void) {
+	
+	int i, hit_pos;	
 	
 	/* Move the ball by its motion vector. */
 	ball.x += ball.dx;
@@ -152,22 +176,22 @@ void move_ball(void) {
 		
 		score[1] += 1; // give cpu a point
 		init_game(); 
+		init_paddles();
 	}
 
-	if (ball.x > (SCREEN_WIDTH - 10)) { //if ball hits right edge of screen
+	if (ball.x > (MAX_X - 10)) { //if ball hits right edge of screen
 		
 		score[0] += 1; // give user a point
 		init_game(); 
+		init_paddles();
 	}
 
-	if (ball.y < 0 || ball.y > (SCREEN_HEIGHT - 10)) { // if ball hits top or bottom edge of screen
+	if (ball.y < 0 || ball.y > (MAX_Y - 10)) { // if ball hits top or bottom edge of screen
 		
 		ball.dy = -ball.dy; // change ball vertical direction
 	}
 
 	//check for collision with the paddle
-	int i;
-
 	for (i = 0; i < 2; i++) {
 		
 		int c = check_collision(ball, paddle[i]); 
@@ -175,24 +199,23 @@ void move_ball(void) {
 		//collision detected	
 		if (c == 1) {
 			
-			//ball moving left
-			if (ball.dx < 0) {
+			//increase velocity
+			if (ball.dx < 0) { // ball moving left
 					
 				ball.dx -= 1;
-
-			//ball moving right
-			} else {
+				
+			} else { // ball moving right
 					
 				ball.dx += 1;
 			}
 			
-			//change ball direction
+			//reverse ball direction
 			ball.dx = -ball.dx;
 			
 			//change ball angle based on where on the paddle it hit
-			int hit_pos = (paddle[i].y + paddle[i].h) - ball.y;
+			hit_pos = (paddle[i].y + paddle[i].h) - ball.y;
 
-			if (hit_pos >= 0 && hit_pos < 7) { // TODO: resolve all these magic numbers...has something to do with paddle size
+			if (hit_pos >= 0 && hit_pos < 7) { 
 				ball.dy = 4;
 			}
 
@@ -228,22 +251,19 @@ void move_ball(void) {
 				ball.dy = -4;
 			}
 
-			//ball moving right
-			if (ball.dx > 0) {
+			//teleport ball to avoid mutli collision glitch if somehow inside paddle
+			if (ball.dx > 0) { // ball moving right
 
-				//teleport ball to avoid mutli collision glitch
-				if (ball.x < 30) { 
+				if (ball.x < 40) { // ball inside user paddle
 				
-					ball.x = 30;
+					ball.x = 40;
 				}
 				
-			//ball moving left
-			} else {
+			} else { // ball moving left
 				
-				//teleport ball to avoid mutli collision glitch
-				if (ball.x > (SCREENWIDTH-40)) { 
+				if (ball.x > (MAX_X-40)) { // ball inside CPU paddle
 				
-					ball.x = SCREENWIDTH-40;
+					ball.x = MAX_X-40;
 				}
 			}
 		}
@@ -252,70 +272,75 @@ void move_ball(void) {
 // Moves the CPUs paddle
 void move_paddle_ai(void) {
 
-	int center = paddle[0].y + 25; // TODO: why the +25?
-	int screen_center = SCREEN_HEIGHT / 2 - 25; // TODO: why the -25?
+	int paddle_center = paddle[1].y + 25;
+	int screen_center = MAX_Y / 2;
 	int ball_speed = ball.dy;
 
-	if (ball_speed < 0) {
-	
-		ball_speed = -ball_speed;
-	}
-
-	//ball moving right
-	if (ball.dx > 0) {
+	//ball moving left, away from CPU paddle
+	if (ball.dx < 0) {
 		
-		//return to center position
-		if (center < screen_center) {
+		//return to paddle_center position
+		
+		if (paddle_center == screen_center){ 
 			
-			paddle[0].y += ball_speed;
+			// if paddle is centered don't do anything			
+			
+		}else if (paddle_center < screen_center) {
+			
+			paddle[1].y += ball_speed;
 		
 		} else {
 		
-			paddle[0].y -= ball_speed;	
+			paddle[1].y -= ball_speed;	
 		}
 
-	//ball moving left
+	//ball moving right, towards CPU paddle
 	} else {
-	
+		// try to block the ball
+		
 		//ball moving down
 		if (ball.dy > 0) { 
 			
-			if (ball.y > center) { 
+			if (ball.y > paddle_center) { 
 				
-				paddle[0].y += ball_speed;
+				paddle[1].y += ball_speed;
 
 			} else { 
 			
-				paddle[0].y -= ball_speed;
+				paddle[1].y -= ball_speed;
 			}
 		}
 		
 		//ball moving up
 		if (ball.dy < 0) {
 		
-			if (ball.y < center) { 
+			if (ball.y < paddle_center) { 
 				
-				paddle[0].y -= ball_speed;
+				paddle[1].y -= ball_speed;
 			
 			} else {
 			
-				paddle[0].y += ball_speed;
+				paddle[1].y += ball_speed;
 			}
 		}
 
 		//ball moving stright across
 		if (ball.dy == 0) {
 			
-			if (ball.y < center) { 
+			if (ball.y < paddle_center) { 
 			
-				paddle[0].y -= 5;
+				paddle[1].y -= 5;
 
 			} else {
 			
-				paddle[0].y += 5;
+				paddle[1].y += 5;
 			}
 		}	 		
 	}
+	
+	if(paddle[1].y > MAX_Y - paddle[0].h) paddle[1].y = MAX_Y - paddle[1].h;
+	if(paddle[1].y < 0) paddle[1].y = 0;
+	
 }
 
 void move_paddle(int d) { 
@@ -323,45 +348,45 @@ void move_paddle(int d) {
 	// if the down arrow is pressed move paddle down
 	if (d == DOWN) {
 		
-		if(paddle[1].y >= SCREEN_HEIGHT - paddle[1].h) {
+		if(paddle[0].y >= MAX_Y - paddle[0].h - 5) {
 		
-			paddle[1].y = SCREEN_HEIGHT - paddle[1].h;
+			paddle[0].y = MAX_Y - paddle[0].h;
 		
 		} else { 
 		
-			paddle[1].y += 5;
+			paddle[0].y += 5;
 		}
 	}
 	
 	// if the up arrow is pressed move paddle up
 	if (d == UP) {
 
-		if(paddle[1].y <= 0) {
+		if(paddle[0].y <= 5) {
 		
-			paddle[1].y = 0;
+			paddle[0].y = 0;
 
 		} else {
 		
-			paddle[1].y -= 5;
+			paddle[0].y -= 5;
 		}
 	}
 }
 
 void draw_game_over(int p) { 
 	
-	static XCHAR p1Wins[11] = {'Y','o','u',' ','W','i','n','!','!','!',0};;
+	static XCHAR p1Wins[11] = {'Y','o','u',' ','W','i','n','!','!','!',0};
 	static XCHAR cpuWins[12] = {'Y','o','u',' ','L','o','s','e','.','.','.',0};
-	static XCHAR gameOver[10] = {'G','a','m','e',' ','O','v','e','r',0}
-	static XCHAR errorTxt[27] = {'O','o','p','s',',',' ','S','o','m','e','t','h','i','n','g',' ','w','e','n','t',' ','w','r','o','n','g',0}
+	static XCHAR gameOver[10] = {'G','a','m','e',' ','O','v','e','r',0};
+	static XCHAR errorTxt[27] = {'O','o','p','s',',',' ','S','o','m','e','t','h','i','n','g',' ','w','e','n','t',' ','w','r','o','n','g',0};
 	
-	unsigned int x_victory = (SCREEN_WIDTH/2);
-	static unsigned int y_victory = (SCREEN_HEIGHT/2)-33; // Arial_Narrow_28 has a height of 33 px, make Y so bottom of text is dead center on screen
+	unsigned int x_victory = (MAX_X/2);
+	static unsigned int y_victory = (MAX_Y/2)-33; // Arial_Narrow_28 has a height of 33 px, make Y so bottom of text is dead center on screen
 	unsigned int victoryTextLength;
 	
 	unsigned int x_gameOver = x_victory;
-	static unsigned int y_gameOver = (SCREEN_HEIGHT/2)+5; // Don't worry about height of text since there's nothing below this text. Offset by 5 so theres some space between this and victory text
+	static unsigned int y_gameOver = (MAX_Y/2)+5; // Don't worry about height of text since there's nothing below this text. Offset by 5 so theres some space between this and victory text
 	unsigned int gameOverTextLength;
-	
+			
 	switch (p) { // 1 means users won, 2 means CPU won
 	
 		case USER:		
@@ -394,7 +419,7 @@ void draw_game_over(int p) {
 			gameOverTextLength = TFT_GetTextLength(errorTxt,&Helvetica_Bd_Cn_17); // figure out how long text is for a given font
 			x_gameOver -= (gameOverTextLength/2); // move origin left half of text length to center text on screen
 			
-			if(x_gameOver>SCREEN_WIDTH || x_gameOver<0) x_gameOver = 0; // if we have something weird happen with the unsigned math, just set x to 0 and draw left justified text
+			if(x_gameOver>MAX_X) x_gameOver = 0; // if we have something weird happen with the unsigned math, just set x to 0 and draw left justified text
 			
 			BackLight_OFF; // turn off backlight for smooth redraw
 			TFT_Clear(TFT_BLACK); // clear screen
@@ -409,12 +434,12 @@ void draw_menu(void) {
 	static XCHAR title[5] = {'P','o','n','g',0};
 	static XCHAR tip[18] = {'P','r','e','s','s',' ','O','K',' ','t','o',' ','b','e','g','i','n',0};
 	
-	unsigned int x_title = (SCREEN_WIDTH/2);
-	unsigned int y_title = (SCREEN_HEIGHT/2) - 33; // Arial_Narrow_28 has a height of 33 px, make Y so bottom of text is dead center on screen
+	unsigned int x_title = (MAX_X/2);
+	unsigned int y_title = (MAX_Y/2) - 33; // Arial_Narrow_28 has a height of 33 px, make Y so bottom of text is dead center on screen
 	unsigned int titleLength;
 	
-	unsigned int x_tip = (SCREEN_WIDTH/2);
-	unsigned int y_tip = (SCREEN_HEIGHT/2) +5; // Don't worry about height of text since there's nothing below this text. Offset by 5 so theres some space between this and title text
+	unsigned int x_tip = (MAX_X/2);
+	unsigned int y_tip = (MAX_Y/2) +5; // Don't worry about height of text since there's nothing below this text. Offset by 5 so theres some space between this and title text
 	unsigned int tipLength;
 	
 	titleLength = TFT_GetTextLength(title,&Arial_Narrow_28); // figure out how long text is for a given font
@@ -427,25 +452,23 @@ void draw_menu(void) {
 	TFT_Clear(TFT_BLACK); // clear screen
 	TFT_ShowString(x_title,y_title,title,TFT_WHITE,&Arial_Narrow_28);
 	TFT_ShowString(x_tip,y_tip,tip,TFT_WHITE,&Helvetica_Bd_Cn_17);
-	BackLight_ON; // turn backlight back on
-	
+	BackLight_ON; // turn backlight back on	
 }
 
 void draw_net(void) { 
 
 	net_seg_t net_seg;
+	int i;
 	
-	net_seg.x = SCREEN_WIDTH / 2;
+	net_seg.x = MAX_X / 2;
 	net_seg.y = 20;
 	net_seg.w = 5;
 	net_seg.h = 15;
 
 	//draw the net
-	int i;
-
 	for(i = 0; i < 15; i++) {
 		
-		TFT_FillRect(net_seg.x, net_seg.y, net_seg.w, net_set.h, TFT_WHITE);
+		TFT_FillRect(net_seg.x, net_seg.y, net_seg.w, net_seg.h, TFT_WHITE);
 
 		net_seg.y = net_seg.y + 30;
 	}
@@ -453,17 +476,54 @@ void draw_net(void) {
 
 void draw_ball(void) { 
 	
-	TFT_FillRect(ball.x, ball.y, ball.w, ball.h, TFT_WHITE);
+	static int oldX = MAX_X/2, oldY = MAX_Y/2;
 	
+	TFT_FillRect(oldX,oldY,ball.w,ball.h,TFT_BLACK); // clear old ball
+	TFT_FillRect(ball.x, ball.y, ball.w, ball.h, TFT_WHITE); // draw new ball
+	
+	oldX = ball.x;
+	oldY = ball.y; // store current positions for next redraw
 }
 
 void draw_paddles(void) {
 
 	int i;
+	int movedUpOrDown; // 0 for down, 1 for up, 2 for none
+	int dy = 0; // store change in y position between last paddle draw and this paddle draw here	
 
-	for (i = 0; i < 2; i++) {
-	
-		TFT_FillRect(paddle[i].x, paddle[i].y, paddle[i].w, paddle[i].h, TFT_WHITE)
+	for(i = 0; i<2; i++)
+	{
+		// calculate change in y position
+		dy = prevPaddle[i].y - paddle[i].y;
+		
+		// determine if the paddle is moving up or down; positive is down the screen, negative is up
+		if(dy>0) movedUpOrDown = UP;
+		else if(dy<0) movedUpOrDown = DOWN;
+		else movedUpOrDown = 2;
+		
+		// make dy positive so the rectangle we draw has a positive height
+		if(dy<0){
+			dy = -dy;
+		}
+		
+		switch(movedUpOrDown)
+		{
+			case UP:
+				// start at new origin, same width, draw down the change in y, white to "extend" paddle
+				TFT_FillRect(paddle[i].x, paddle[i].y, paddle[i].w,dy,TFT_WHITE); // add to top of paddle
+				// start at the bottom of leftmost edge of new rectangle, same width, draw down change in y but black to cover old white
+				TFT_FillRect(prevPaddle[i].x, paddle[i].y + paddle[i].h, prevPaddle[i].w, dy, TFT_BLACK); // remove some of the bottom of paddle
+			break;
+			case DOWN:
+				// start at bottom leftmost edge of old white rectangle, same width, draw down change in y, white to "extend" paddle
+				TFT_FillRect(paddle[i].x, prevPaddle[i].y + prevPaddle[i].h, paddle[i].w, dy,TFT_WHITE); // add to bottom of paddle
+				// start at old origin, same width, drawn down the change in y, black to "hide" paddle
+				TFT_FillRect(prevPaddle[i].x, prevPaddle[i].y, paddle[i].w, dy, TFT_BLACK); // remove some of the top of paddle
+			break;
+			case 2:
+			default:
+				break;
+		}
 	}
 }
 
@@ -477,7 +537,7 @@ void draw_user_score(void) {
 	// src.w = 64;
 	// src.h = 64;
 	// 
-	// dest.x = (SCREEN_WIDTH / 2) - src.w - 12; //12 is just padding spacing
+	// dest.x = (MAX_X / 2) - src.w - 12; //12 is just padding spacing
 	// dest.y = 0;
 	// dest.w = 64;
 	// dest.h = 64;
@@ -520,7 +580,7 @@ void draw_cpu_score(void) {
 	// src.w = 64;
 	// src.h = 64;
 	// 
-	// dest.x = (SCREEN_WIDTH / 2) + 12;
+	// dest.x = (MAX_X / 2) + 12;
 	// dest.y = 0;
 	// dest.w = 64;
 	// dest.h = 64;
@@ -547,7 +607,7 @@ void draw_cpu_score(void) {
 	cpuScore[1] = ones_c;
 	cpuScore[2] = 0;
 	
-	x = (SCREEN_WIDTH/2) + 15;
+	x = (MAX_X/2) + 15;
 	y = 0 + 15;
 	
 	TFT_ShowString(x,y,cpuScore,TFT_WHITE,&Arial_Narrow_28);
@@ -565,89 +625,91 @@ int main (void) {
 	
 		GetKeyPress();
 		
-		if (KeyEvent==EVENT_PRESS && KeyValue!=KEY_DN && KeyValue!=KEY_UP && KeyValue!=KEY_OK) { // if user presses any key that isn't OK, up or down then exit
-		
-			exit_pong = true;
+		// if user presses any key that isn't OK, up or down then exit	
+		if (KeyEvent==EVENT_PRESS && KeyValue!=KEY_DN && KeyValue!=KEY_UP && KeyValue!=KEY_OK) { 	
+			exit_pong = true; // prevent pong re-entry
+			GoToHomeScreen(); // re-initalize to home screen // TODO: exit pong function here
 		}
 		
-		if (KeyEvent==EVENT_PRESS && KeyValue == KEY_DN && pong_state == GAME_ON) { // if user presses down while the game is going 
-			
+		// if user presses down while the game is going
+		if ((KeyEvent==EVENT_PRESS || KeyEvent==EVENT_HOLD) && KeyValue == KEY_DN && pong_state == GAME_ON) {  			
 			move_paddle(DOWN); // move paddle down
 		}
 
-		if (KeyEvent==EVENT_PRESS && KeyValue == KEY_UP && pong_state == GAME_ON) { // if user presses up while the game is going 
-			
+		// if user presses up while the game is going 	
+		if ((KeyEvent==EVENT_PRESS || KeyEvent==EVENT_HOLD) && KeyValue == KEY_UP && pong_state == GAME_ON) { 		
 			move_paddle(UP); // move paddle up
 		}
 		
-		//draw background
-		//SDL_RenderClear(renderer);
-		//SDL_FillRect(screen, NULL, 0x000000ff);
-		TFT_Clear(TFT_BLACK); // TODO: check this out...not sure about OG syntax (above) but I think they just clear the whole screen every time
-		
-		//display main menu
-		if (pong_state == GAME_IDLE ) {
-		
-			if (KeyValue == KEY_OK) { // "press OK to start"
-				
-				pong_state = GAME_ON; 
-			}
-		
-			//draw menu 
-			draw_menu();
-		
-		//display gameover
-		} else if (pong_state == GAME_OVER) {
-		
-			if (KeyEvent==EVENT_PRESS && KeyValue == KEY_OK) { // "press OK to exit to menu"
-				pong_state = GAME_IDLE;
-				
-				//delay for a little bit so the space bar press dosnt get triggered twice
-				//while the main menu is showing
-            			DelayMS(500);
-			}
+		// draw the screen for various states; main menu, game active, game over
+		switch(pong_state)
+		{
+			case GAME_ON:
+				// paddle ai movement
+				move_paddle_ai();
 
-			draw_game_over(winning_player);
+				// Move the balls for the next frame. 
+				move_ball();
 				
-		//display the game
-		} else if (pong_state == GAME_ON) {
+				// draw net
+				draw_net();
+
+				// draw paddles
+				draw_paddles();
+				
+				// Put the ball on the screen.
+				draw_ball();
+		
+				// draw the score
+				draw_user_score();
+		
+				// draw the score
+				draw_cpu_score();
+				
+				// store paddle state for next time
+				prevPaddle[0] = paddle[0];
+				prevPaddle[1] = paddle[1];
+				
+				//check score
+				winning_player = check_score();
 			
-			//check score
-			winning_player = check_score();
-		
-			//if either player wins, change to game over pong_state
-			if (winning_player) {
+				//look for a winner to change state
+				if (winning_player) {						
+					pong_state = GAME_OVER;	
+					gameOverDrawn = false; // clear this so the game over screen gets drawn
+				} 
+			break;
+			case GAME_IDLE:
+				//draw menu 
+				if(!menuDrawn){
+					draw_menu();
+					menuDrawn = true;
+				}
 				
-				pong_state = GAME_OVER;	
-
-			} 
-
-			// paddle ai movement
-			move_paddle_ai();
-
-			// Move the balls for the next frame. 
-			move_ball();
-			
-			// draw net
-			draw_net();
-
-			// draw paddles
-			draw_paddles();
-			
-			// Put the ball on the screen.
-			draw_ball();
-	
-			// draw the score
-			draw_user_score();
-	
-			// draw the score
-			draw_cpu_score();
+				// look for user input to change states
+				if(KeyEvent==EVENT_PRESS && KeyValue == KEY_OK) { // TODO: what is the text on screen here?				
+					pong_state = GAME_ON; 
+					TFT_Clear(TFT_BLACK);
+					init_paddles();
+				}						
+			break;
+			case GAME_OVER:
+				// draw game over screen
+				if(!gameOverDrawn)	{
+					draw_game_over(winning_player);
+					gameOverDrawn = true;
+				}
+				
+				// look for user input to change states
+				if(KeyEvent==EVENT_PRESS && KeyValue == KEY_OK) { // "press OK to exit to menu" // TODO: what is this text now?
+					pong_state = GAME_IDLE;
+					menuDrawn = false; // clear this so the menu screen gets drawn
+				}
+			break;
+			default:
+				// TODO: add exit pong function here
+			break;
 		}
-	
-	}
-
-	 
-	return 0;
-	
+	}	
 }
 */

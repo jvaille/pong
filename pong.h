@@ -19,6 +19,7 @@
 ********************************************************************************************************/
 /* includes */
 #include <stdbool.h>
+#include "includes.h"
 #include "tft_drv.h"
 
 /* User Created Type Declarations */
@@ -42,9 +43,6 @@ typedef struct net_seg_s {
 } net_seg_t;
 
 /* Constant Macros Definitions */
-#define SCREEN_WIDTH 320	//window height // TODO: get thes from whereve they exist in remote source
-#define SCREEN_HEIGHT 480	//window width
-
 #define USER		1
 #define CPU			2
 
@@ -57,16 +55,19 @@ typedef struct net_seg_s {
 
 /* Extern Variable Declarations */
 extern ball_t ball; // the ball
-extern paddle_t paddle[2]; // the paddles, one for user, one for CPU
+extern paddle_t paddle[2], prevPaddle[2]; // the paddles, one for user, one for CPU
 extern int score[2]; // the score, one for user, one for CPU
 extern int pong_state; // 0 for main menu, 1 for playing, 2 for game over
 extern int winning_player; // 1 for user, 2 for CPU
 extern bool exit_pong; // is true to exit 
+extern bool menuDrawn; // is false before the menu is drawn, true after. Prevents unneccessary redraws
+extern bool gameOverDrawn; // is false before the game over screen is drawn, true after. Prevents unneccessary redraws.
 
 /* Function Declarations */
 void init_game(void); //initialize starting position and sizes of game elemements
+void init_paddles(void); // draws paddles for the first time
 int check_score(void); // returns 1 or 2 if player 1 or 2 has won, 0 if not
-int check_collision(ball_t a, paddle_t b); //if returns 1 if a collision occured, 0 if not
+int check_collision(ball_t b, paddle_t p); //if returns 1 if a collision occured, 0 if not
 void move_ball(void); // This routine moves each ball by its motion vector. 
 void move_paddle_ai(void); // Moves the CPUs paddle
 void move_paddle(int d); // Moves the user's paddle
@@ -77,8 +78,5 @@ void draw_ball(void);
 void draw_paddles(void);
 void draw_user_score(void);
 void draw_cpu_score(void);
-
-
-
 
 #endif // PONG_H

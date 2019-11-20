@@ -43,15 +43,16 @@ typedef struct net_seg_s {
 } net_seg_t;
 
 /* Constant Macros Definitions */
-#define USER		1
-#define CPU			2
+#define USER		 1
+#define CPU			 2
 
-#define GAME_IDLE	0
-#define GAME_ON		1
-#define GAME_OVER	2
+#define GAME_IDLE	 0
+#define GAME_ON		 1
+#define GAME_OVER	 2
+#define GAME_EXITING 3
 
-#define DOWN		0
-#define UP			1
+#define DOWN		 0
+#define UP			 1
 
 /* Extern Variable Declarations */
 extern ball_t ball; // the ball
@@ -59,9 +60,9 @@ extern paddle_t paddle[2], prevPaddle[2]; // the paddles, one for user, one for 
 extern int score[2]; // the score, one for user, one for CPU
 extern int pong_state; // 0 for main menu, 1 for playing, 2 for game over
 extern int winning_player; // 1 for user, 2 for CPU
-extern bool exit_pong; // is true to exit 
 extern bool menuDrawn; // is false before the menu is drawn, true after. Prevents unneccessary redraws
 extern bool gameOverDrawn; // is false before the game over screen is drawn, true after. Prevents unneccessary redraws.
+extern unsigned int victoryColorIterator; // keep track of where in the color flashing cycle we are after user wins
 
 /* Function Declarations */
 void init_game(void); //initialize starting position and sizes of game elemements

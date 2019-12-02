@@ -27,9 +27,9 @@ I will take any feature requests like updating the AI or movement animation if t
 just clone the code and do it yourself. Enjoy!
 
 ## Controls
-* space bar to start a game
-* arrow keys for movement
-* ESC to exit game
+* OK to start game
+* arrow keys (up/down) for movement
+* any other key to exit game
 
 ## Images - Out of Date; from original forked software
 ![title screen](http://i.imgur.com/radat.png)
